@@ -191,7 +191,7 @@ const fx=(k,n)=>{if(net==='host')bc({t:'fx',k,n})};
 const RG=520;
 function playReplay(a){a.forEach((v,k)=>later(()=>flash(v,RG*.6),600+k*RG))}
 function handoff(){$('turn').hidden=true;fl(COL[cur%COL.length]);pulse=1;ann(who());if(net==='host')bc({t:'turn',cur});
- if(net&&seq.length){state='hand';tok++;at=0;dots();hud();setStat('PLAYER '+(cur+1)+' · WATCH THE CODE');const a=seq.slice();sync();bc({t:'replay',s:a});playReplay(a);later(beginTurn,600+a.length*RG+350)}
+ if(net&&seq.length){state='hand';tok++;at=0;dots();hud();setStat('PLAYER '+(cur+1)+' · WATCH THE CODE');const a=seq.slice();sync();if(cur===0)playReplay(a);else{const c=conns[cur-1];if(c&&c.open)c.send({t:'replay',s:a})}later(beginTurn,600+a.length*RG+350)}
  else beginTurn()}
 function beginTurn(){$('turn').hidden=true;tok++;state='input';at=0;dots();hud();$('pads').classList.remove('watch');$('note').textContent='';setStat('PLAYER '+(cur+1)+' · '+(seq.length?'REPEAT THE CODE':'TAP ANY SYMBOL TO START'));sync()}
 function partyTap(i){
