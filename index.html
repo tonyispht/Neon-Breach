@@ -164,7 +164,7 @@ function startRound(msg,q){const surge=mode==='run'&&round>1&&round%5===0;
  if(surge){pulse=1.5;fl('#fff')}
  if(nP()!==nPads)build();newSeq();setKey();$('note').textContent=msg||'';playSeq()}
 function press(i){wake();if(state!=='input'||(net==='host'&&cur!==0))return;flash(i,Math.min(190,nG()*.6));
- if(net==='guest'){if(conn&&conn.open)conn.send({t:'tap',i});return}if(net==='host')bc({t:'tap',i});if(mode==='party')return partyTap(i);
+ if(net==='guest'){if(conn&&conn.open)conn.send({t:'tap',i});return}if(mode==='party')return partyTap(i);
  if(i===seq[at]){at++;dots();burst(i,12,1);if(at===seq.length){state='win';tok++;celebrate();$('stat').style.color='#5fffa0';$('stat').textContent='CORRECT! CODE CRACKED';winSnd();
    later(()=>{if(mode==='zen'){zc++;startRound('',1)}else{round++;const grow=padsFor(round)>padsFor(round-1);startRound(grow?'NEW KEYS ADDED · '+padsFor(round)+' SYMBOLS NOW':'NEXT CODE IS LONGER AND FASTER')}},1300)}}
  else miss()}
@@ -188,13 +188,17 @@ function setStat(s,c){rawStat=s;rawCol=c||'var(--cy)';$('stat').style.color=rawC
 function bc(m,x){conns.forEach(c=>{if(c!==x&&c.open)c.send(m)})}
 const sync=()=>{if(net==='host')bc({t:'sync',cur,len:seq.length,at,aliveN,stat:rawStat,col:rawCol,note:$('note').textContent,inp:state==='input'})};
 const fx=(k,n)=>{if(net==='host')bc({t:'fx',k,n})};
-function handoff(){$('turn').hidden=true;fl(COL[cur%COL.length]);pulse=1;ann(who());if(net==='host')bc({t:'turn',cur});beginTurn()}
+const RG=520;
+function playReplay(a){a.forEach((v,k)=>later(()=>flash(v,RG*.6),600+k*RG))}
+function handoff(){$('turn').hidden=true;fl(COL[cur%COL.length]);pulse=1;ann(who());if(net==='host')bc({t:'turn',cur});
+ if(net&&seq.length){state='hand';tok++;at=0;dots();hud();setStat('PLAYER '+(cur+1)+' · WATCH THE CODE');const a=seq.slice();sync();bc({t:'replay',s:a});playReplay(a);later(beginTurn,600+a.length*RG+350)}
+ else beginTurn()}
 function beginTurn(){$('turn').hidden=true;tok++;state='input';at=0;dots();hud();$('pads').classList.remove('watch');$('note').textContent='';setStat('PLAYER '+(cur+1)+' · '+(seq.length?'REPEAT THE CODE':'TAP ANY SYMBOL TO START'));sync()}
 function partyTap(i){
  if(at<seq.length){
-  if(i===seq[at]){at++;dots();burst(i,12,1);if(at===seq.length)setStat('NOW ADD ONE NEW SYMBOL');sync()}
+  if(i===seq[at]){at++;dots();if(!net||cur===me)burst(i,12,1);if(at===seq.length)setStat('NOW ADD ONE NEW SYMBOL');sync()}
   else eliminate()}
- else{seq.push(i);at++;state='win';tok++;dots();pulse=1;fl('#5fffa0');winSnd();fx('good',seq.slice(-8));setStat('ADDED · PASS IT ON','#5fffa0');nextP();setKey();sync();later(handoff,220)}}
+ else{seq.push(i);at++;state='win';tok++;dots();pulse=1;fl('#5fffa0');if(!net)winSnd();setStat('ADDED · PASS IT ON','#5fffa0');nextP();setKey();sync();later(handoff,220)}}
 function eliminate(){badSnd();fl('#ff3b5c');shake();fx('bad');state='bad';tok++;const p=cur;alive[p]=false;aliveN--;setStat('WRONG · PLAYER '+(p+1)+' IS OUT','#ff3b5c');
  if(aliveN<=1){winner=alive.indexOf(true);live=false;sync();later(showWin,1100);return}
  nextP();$('note').textContent=aliveN+' PLAYERS REMAIN';sync();later(handoff,800)}
@@ -226,14 +230,14 @@ function joinRoom(code){$('nsub').textContent='Connecting…';loadPeer(()=>{cons
  p.on('open',()=>{const c=conn=p.connect('neonbreach-'+code,{reliable:true});c.on('open',()=>{net='guest';room=code;lobbyUI()});c.on('data',guestData);c.on('close',()=>{if(net==='guest'&&conn===c)netFail('The host left the game.')})})},()=>netFail('Online play needs an internet connection.'))}
 function onConn(c){c.on('open',()=>{if(net!=='host'||!inLobby){c.send({t:'full'});setTimeout(()=>c.close(),400);return}conns.push(c);lobbyUI();c.on('data',d=>hostData(c,d));c.on('close',()=>gone(c))})}
 function gone(c){if(net!=='host')return;const k=conns.indexOf(c);if(k<0)return;if(inLobby){conns.splice(k,1);lobbyUI()}else dropPlayer(k+1)}
-function hostData(c,d){const k=conns.indexOf(c)+1;if(d&&d.t==='tap'&&k>0&&state==='input'&&cur===k&&Number.isInteger(d.i)&&d.i>=0&&d.i<nPads){flash(d.i,Math.min(190,nG()*.6));bc({t:'tap',i:d.i},c);partyTap(d.i)}}
+function hostData(c,d){const k=conns.indexOf(c)+1;if(d&&d.t==='tap'&&k>0&&state==='input'&&cur===k&&Number.isInteger(d.i)&&d.i>=0&&d.i<nPads){partyTap(d.i)}}
 function guestData(d){switch(d.t){
  case'lobby':$('nsub').textContent='Connected · '+d.n+' in the room. Waiting for the host to start.';break;
  case'full':netFail('That room is full or already started.');break;
  case'start':mode='party';live=true;me=d.you;seq=[];at=0;aliveN=d.n;cur=0;inLobby=false;state='hand';showGame();nPads=0;build();$('dots').innerHTML='';$('stat').textContent='';$('note').textContent='';hud();break;
  case'turn':cur=d.cur;fl(COL[cur%COL.length]);pulse=1;ann(who());break;
  case'sync':cur=d.cur;seq=new Array(d.len).fill(0);at=d.at;aliveN=d.aliveN;setKey();state=d.inp&&cur===me?'input':'hand';hud();dots();$('stat').style.color=d.col;$('stat').textContent=mine(d.stat);$('note').textContent=d.note;break;
- case'tap':flash(d.i,180);break;
+ case'replay':playReplay(d.s);break;
  case'fx':if(d.k==='bad'){badSnd();fl('#ff3b5c');shake()}else{winSnd(d.n);pulse=1;fl('#5fffa0')}break;
  case'win':winner=d.w;seq=new Array(d.len).fill(0);showWin();break}}
 $('onlineB').onclick=netMenu;
